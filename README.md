@@ -1,4 +1,4 @@
-# Bounded FBM Simulator - with Time-Varying Diffusivity and Hurst Parameters
+# Multi-Dimensional Bounded FBM Simulator - with Time-Varying Diffusivity and Hurst Parameters
 
 ## Overview
 
