@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import pyvista as pv
 
-from .base_cell import BaseCell
+from .base_cell import BASE_TOLERANCE, BaseCell
 
 
 @dataclass
@@ -17,6 +17,27 @@ class RectangularCell(BaseCell):
     """
 
     bounds: np.ndarray
+
+    def contains_point_fallback(
+        self, x: float, y: float, z: float, tolerance: float = BASE_TOLERANCE
+    ) -> bool:
+        """
+        Determines if a point (x, y, z) is inside the rectangular cell.
+
+        Args:
+            x (float): X-coordinate of the point
+            y (float): Y-coordinate of the point
+            z (float): Z-coordinate of the point
+
+        Returns:
+            bool: True if the point is inside the ovoid, False otherwise
+        """
+        # Convert single values to a point vector
+        point = np.array([x, y, z])
+        for i in range(len(point)):
+            if (point[i] < self.bounds[i][0]) or (point[i] > self.bounds[i][1]):
+                return False
+        return True
 
 
 def make_RectangularCell(bounds: np.ndarray) -> RectangularCell:

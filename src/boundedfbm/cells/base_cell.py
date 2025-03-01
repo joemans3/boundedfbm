@@ -1,11 +1,11 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import numpy as np
 import pyvista as pv
 
-BASE_TOLERANCE = 1e-4
+BASE_TOLERANCE = 1e-3
 
 
 class tolerance_updater:
@@ -74,6 +74,13 @@ class BaseCell(ABC):
         mask = enclosed["SelectedPoints"][0]
         return bool(mask)
 
+    @abstractmethod
+    def contains_point_fallback(
+        self, x: float, y: float, z: float, tolerance: float = BASE_TOLERANCE
+    ) -> bool:
+        """Fallback check if point is inside shape"""
+        pass
+
     def reflecting_point(
         self,
         x1: float,
@@ -82,7 +89,7 @@ class BaseCell(ABC):
         x2: float,
         y2: float,
         z2: float,
-        max_iterations: int = 10,
+        max_iterations: int = 5,
     ) -> Tuple[float, float, float]:
         """
         Reflect a point to the nearest boundary if it's outside the shape.
@@ -95,13 +102,13 @@ class BaseCell(ABC):
         Returns:
             A tuple (xr, yr, zr) representing the reflected point inside the shape.
         """
-        if not self.contains_point(x1, y1, z1, self.tolerance_generator()):
+        if not self.contains_point_fallback(x1, y1, z1, self.tolerance_generator()):
             raise ValueError(
                 f"Reference point ({x1}, {y1}, {z1}) must be inside the shape."
             )
 
         # If already inside, return the point
-        if self.contains_point(x2, y2, z2, self.tolerance_generator()):
+        if self.contains_point_fallback(x2, y2, z2, self.tolerance_generator()):
             return (x2, y2, z2)
 
         p1 = np.array([x1, y1, z1])
@@ -116,98 +123,52 @@ class BaseCell(ABC):
 
             ray_direction /= ray_length  # Normalize direction
 
-            # Perform ray tracing
-            hit_points, _ = self.mesh.ray_trace(p1, p2, first_point=False)
-            hit_points_shape = hit_points.shape
-            #     # FIX:
-            #     # small values can impact the ray trace. EX: limit of 9 and value of 9.00001 will show no interactions. As a bandaid solution I use the closest cell of the mesh and find the normal and invert it into the mesh center.
-            if hit_points_shape[0] == 0:
-                # Try with slightly perturbed direction
-                perturbed_direction = p2 + np.random.normal(0, 0.1, 3)
-                hit_points, _ = self.mesh.ray_trace(
-                    p1, perturbed_direction, first_point=False
-                )
-                hit_points_shape = hit_points.shape
-                if hit_points_shape[0] == 0:
-                    # Fallback: Find closest cell to p1 and use its normal
-                    print(
-                        f"Ray tracing failed for p1 {p1}, p2 {p2} at iteration {iterations}. Using fallback method."
-                    )
-                    closest_cell_id = self.mesh.find_closest_cell(p1)
-                    if isinstance(closest_cell_id, int):
-                        closest_cell_id = [closest_cell_id]
+            closest_cell_id, closest_point = self.mesh.find_closest_cell(
+                p1, return_closest_point=True
+            )
+            if isinstance(closest_cell_id, int):
+                closest_cell_id = [closest_cell_id]
 
-                    if len(closest_cell_id) == 0:
-                        raise ValueError(
-                            "Could not find closest cell to reference point."
-                        )
+            if len(closest_cell_id) == 0:
+                raise ValueError("Could not find closest cell to reference point.")
 
-                    # Get the normal for this cell
-                    cell_normal = self.mesh.cell_normals[closest_cell_id[0]]
-                    cell_normal = cell_normal / np.linalg.norm(cell_normal)
+            # Get the normal for this cell
+            cell_normal = self.mesh.cell_normals[closest_cell_id[0]]
+            cell_normal = cell_normal / np.linalg.norm(cell_normal)
 
-                    # Invert the normal to point into the mesh if needed
-                    # Check if the normal is pointing away from p1 (dot product test)
-                    closest_cell_center = self.mesh.cell_centers().points[
-                        closest_cell_id[0]
-                    ]
-                    vector_to_center = closest_cell_center - p1
-                    if np.dot(cell_normal, vector_to_center) < 0:
-                        cell_normal = -cell_normal  # Invert to point into the mesh
+            # Invert the normal to point into the mesh if needed
+            # Check if the normal is pointing away from p1 (dot product test)
+            closest_cell_center = self.mesh.cell_centers().points[closest_cell_id[0]]
+            vector_to_center = closest_cell_center - p1
+            if np.dot(cell_normal, vector_to_center) < 0:
+                cell_normal = -cell_normal  # Invert to point into the mesh
 
-                    # Calculate a new p2 using the normal and original direction
-                    # Project the original direction onto the normal plane
-                    proj = np.dot(ray_direction, cell_normal) * cell_normal
-                    reflected_direction = ray_direction - 2 * proj
+            # Calculate a new p2 using the normal and original direction
+            # Project the original direction onto the normal plane
+            proj = np.dot(ray_direction, cell_normal) * cell_normal
+            reflected_direction = ray_direction - 2 * proj
 
-                    # Create a new p2 based on reflection
-                    p2 = (
-                        p1
-                        + reflected_direction
-                        / np.linalg.norm(reflected_direction)
-                        * ray_length
-                    )
-
-                    # Check if the new p2 is inside
-                    if self.contains_point(*p2):
-                        return tuple(p2)
-
-                    # If not inside, continue to next iteration with this new p2
-                    continue
-            # find the first non p1 point in hit_points
-
-            if hit_points_shape[0] > 1:
-                # if more than one point, take the first one which is not p1
-                hit_points = hit_points[1]
-            else:
-                hit_points = hit_points[0]
-            intersection = hit_points
-
-            # Get the normal at the hit point
-            cell_ids = _
-
-            normal = self.mesh.cell_normals[cell_ids[0]]
-
-            normal /= np.linalg.norm(normal)  # Normalize the normal vector
-
-            # Reflect the direction
-            ray_direction = ray_direction - 2 * np.dot(ray_direction, normal) * normal
-
-            # Compute the new candidate point
-            p2 = intersection + ray_direction * (
-                ray_length - np.linalg.norm(intersection - p1)
+            # Create a new p2 based on reflection
+            p2 = p1 + (reflected_direction / np.linalg.norm(reflected_direction)) * (
+                np.abs(ray_length - np.linalg.norm(closest_point - p1))
             )
 
-            # Check if it's inside
-            if self.contains_point(*p2):
+            # Check if the new p2 is inside
+            if self.contains_point_fallback(*p2, tolerance=self.tolerance_generator()):
                 return tuple(p2)
-            # # Add debugging visualization
-            # if max_iterations >= 9:  # Only on failure cases
-            #     debug_points = [tuple(p1), tuple(p2)]
-            #     if "intersection" in locals():
-            #         debug_points.append(tuple(intersection))
-            #     self._visualize(debug_points)
-        raise RuntimeError("Max iterations reached. Reflection may not have converged.")
+
+            p1 = closest_point
+
+        # self._visualize([p1, p2])
+        RuntimeWarning(
+            f"Max iterations reached. Reflection may not have converged. Reflecting straight back into the cell center. p1: {p1}, p2: {p2}."
+        )
+        p2 = p1 + ((self.mesh.center - p1) / np.linalg.norm(self.mesh.center - p1)) * (
+            np.abs(ray_length)
+        )
+
+        # self._visualize([p1, p2])
+        return tuple(p2)
 
     def _visualize(self, points: Optional[List[Tuple[float, float, float]]] = None):
         """Visualize the capsule and optional points."""
@@ -228,6 +189,7 @@ class BaseCell(ABC):
 
     def _calculate_bounds(self) -> Tuple[float, float, float, float, float, float]:
         self._bounds = self.mesh.bounds
+        print(self._bounds)
         return self._bounds
 
     @property
