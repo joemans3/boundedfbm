@@ -160,7 +160,7 @@ class BaseCell(ABC):
             p1 = closest_point
 
         # self._visualize([p1, p2])
-        RuntimeWarning(
+        print(
             f"Max iterations reached. Reflection may not have converged. Reflecting straight back into the cell center. p1: {p1}, p2: {p2}."
         )
         p2 = p1 + ((self.mesh.center - p1) / np.linalg.norm(self.mesh.center - p1)) * (
@@ -189,7 +189,6 @@ class BaseCell(ABC):
 
     def _calculate_bounds(self) -> Tuple[float, float, float, float, float, float]:
         self._bounds = self.mesh.bounds
-        print(self._bounds)
         return self._bounds
 
     @property
