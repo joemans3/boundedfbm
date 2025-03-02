@@ -35,7 +35,7 @@ class RectangularCell(BaseCell):
         # Convert single values to a point vector
         point = np.array([x, y, z])
         for i in range(len(point)):
-            if (point[i] < self.bounds[i][0]) or (point[i] > self.bounds[i][1]):
+            if (point[i] < self.bounds[i]) or (point[i] > self.bounds[i + 1]):
                 return False
         return True
 
