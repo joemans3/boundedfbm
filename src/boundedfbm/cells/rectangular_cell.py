@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 
 import numpy as np
 import pyvista as pv
@@ -38,6 +39,76 @@ class RectangularCell(BaseCell):
             if (point[i] < self.bounds[i]) or (point[i] > self.bounds[i + 1]):
                 return False
         return True
+
+    def reflecting_point(
+        self,
+        x1: float,
+        y1: float,
+        z1: float,
+        x2: float,
+        y2: float,
+        z2: float,
+        max_iterations: int = 5,
+    ) -> Tuple[float, float, float]:
+        """
+        Calculate the final position of a ray after reflections in a 3D rectangular box.
+
+        Args:
+            x1, y1, z1: Coordinates of the starting point
+            x2, y2, z2: Coordinates of the initial direction point
+            max_iterations: Maximum number of reflections to calculate
+
+        Returns:
+            Tuple[float, float, float]: The final position after reflections
+        """
+        if self.contains_point_fallback(x2, y2, z2) and self.contains_point_fallback(
+            x1, y1, z1
+        ):
+            return (x2, y2, z2)
+        # Current position
+        pos = [x1, y1, z1]
+
+        # Direction vector
+        delta = [x2 - x1, y2 - y1, z2 - z1]
+
+        # Extract bounds
+        mins = [self.bounds[0], self.bounds[2], self.bounds[4]]  # x_min, y_min, z_min
+        maxs = [self.bounds[1], self.bounds[3], self.bounds[5]]  # x_max, y_max, z_max
+
+        for _ in range(max_iterations):
+            if all(d == 0 for d in delta):
+                break
+
+            for dim in range(3):
+                d = delta[dim]
+                if d == 0:
+                    continue
+
+                # Calculate distances to both boundaries
+                dist_to_min = (mins[dim] - pos[dim]) / d if d < 0 else float("inf")
+                dist_to_max = (maxs[dim] - pos[dim]) / d if d > 0 else float("inf")
+
+                # Find closest boundary
+                dist = min(dist_to_min, dist_to_max)
+
+                if dist < 1:  # Will hit boundary before completing move
+                    # Move to boundary
+                    for i in range(3):
+                        pos[i] += delta[i] * dist
+
+                    # Reflect only the dimension that hit
+                    delta[dim] = -delta[dim]
+
+                    # Scale remaining motion
+                    for i in range(3):
+                        delta[i] *= 1 - dist
+                    break
+                else:  # Complete move without hitting boundary
+                    for i in range(3):
+                        pos[i] += delta[i]
+                    delta = [0, 0, 0]
+
+        return tuple(pos)
 
 
 def make_RectangularCell(bounds: np.ndarray) -> RectangularCell:
