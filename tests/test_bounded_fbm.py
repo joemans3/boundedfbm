@@ -89,7 +89,6 @@ def test_validate_ovoid_cell_parameters():
     # Valid parameters
     params = {
         "center": [0, 0, 0],
-        "direction": [0, 0, 1],
         "xradius": 10.0,
         "yradius": 15.0,
         "zradius": 20.0,
@@ -101,7 +100,6 @@ def test_validate_ovoid_cell_parameters():
     # Invalid: missing parameter
     params = {
         "center": [0, 0, 0],
-        "direction": [0, 0, 1],
         "xradius": 10.0,
         "zradius": 20.0,
     }
