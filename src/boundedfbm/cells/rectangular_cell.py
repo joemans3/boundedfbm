@@ -66,49 +66,19 @@ class RectangularCell(BaseCell):
         ):
             return (x2, y2, z2)
         # Current position
-        pos = [x1, y1, z1]
-
-        # Direction vector
-        delta = [x2 - x1, y2 - y1, z2 - z1]
+        candidate_pos = [x2, y2, z2]
 
         # Extract bounds
         mins = [self.bounds[0], self.bounds[2], self.bounds[4]]  # x_min, y_min, z_min
         maxs = [self.bounds[1], self.bounds[3], self.bounds[5]]  # x_max, y_max, z_max
 
-        for _ in range(max_iterations):
-            if all(d == 0 for d in delta):
-                break
-
-            for dim in range(3):
-                d = delta[dim]
-                if d == 0:
-                    continue
-
-                # Calculate distances to both boundaries
-                dist_to_min = (mins[dim] - pos[dim]) / d if d < 0 else float("inf")
-                dist_to_max = (maxs[dim] - pos[dim]) / d if d > 0 else float("inf")
-
-                # Find closest boundary
-                dist = min(dist_to_min, dist_to_max)
-
-                if dist < 1:  # Will hit boundary before completing move
-                    # Move to boundary
-                    for i in range(3):
-                        pos[i] += delta[i] * dist
-
-                    # Reflect only the dimension that hit
-                    delta[dim] = -delta[dim]
-
-                    # Scale remaining motion
-                    for i in range(3):
-                        delta[i] *= 1 - dist
-                    break
-                else:  # Complete move without hitting boundary
-                    for i in range(3):
-                        pos[i] += delta[i]
-                    delta = [0, 0, 0]
-
-        return tuple(pos)
+        for dim in range(3):
+            while (candidate_pos[dim] > maxs[dim]) or (candidate_pos[dim] < mins[dim]):
+                if candidate_pos[dim] > maxs[dim]:
+                    candidate_pos[dim] = 2 * maxs[dim] - candidate_pos[dim]
+                elif candidate_pos[dim] < mins[dim]:
+                    candidate_pos[dim] = 2 * mins[dim] - candidate_pos[dim]
+        return (candidate_pos[0], candidate_pos[1], candidate_pos[2])
 
 
 def make_RectangularCell(bounds: np.ndarray) -> RectangularCell:
