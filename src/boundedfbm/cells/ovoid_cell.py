@@ -20,7 +20,6 @@ class OvoidCell(BaseCell):
     """
 
     center: np.ndarray
-    direction: np.ndarray
     xradius: float
     yradius: float
     zradius: float
@@ -34,6 +33,7 @@ class OvoidCell(BaseCell):
         """
         Precalculates values needed for the is_point_inside method to improve performance.
         """
+        self.direction = np.array([1, 0, 0])
         # Normalize the direction vector
         direction_normalized = self.direction / np.linalg.norm(self.direction)
 
@@ -93,20 +93,10 @@ class OvoidCell(BaseCell):
         """
         # Convert single values to a point vector
         point = np.array([x, y, z])
-
-        # Translate point to ovoid's coordinate system (origin at center)
-        translated_point = point - self.center
-
-        # Apply rotation to align with standard axes
-        rotated_point = self._rotation_matrix @ translated_point
-
-        # Check if the point is inside the ellipsoid using the standard equation
-        # (x/a)² + (y/b)² + (z/c)² <= 1
-        # Using precalculated squared reciprocals for efficiency
         inside = (
-            (rotated_point[0] ** 2) * self._x_radius_sq_recip
-            + (rotated_point[1] ** 2) * self._y_radius_sq_recip
-            + (rotated_point[2] ** 2) * self._z_radius_sq_recip
+            ((point[0] - self.center[0]) ** 2) * self._x_radius_sq_recip
+            + ((point[1] - self.center[1]) ** 2) * self._y_radius_sq_recip
+            + ((point[2] - self.center[2]) ** 2) * self._z_radius_sq_recip
         ) <= 1.0
 
         return inside
@@ -114,7 +104,6 @@ class OvoidCell(BaseCell):
 
 def make_OvoidCell(
     center: np.ndarray,
-    direction: np.ndarray,
     xradius: float,
     yradius: float,
     zradius: float,
@@ -125,10 +114,8 @@ def make_OvoidCell(
             yradius=yradius,
             zradius=zradius,
             center=center,
-            direction=direction,
         ),
         center=center,
-        direction=direction,
         xradius=xradius,
         yradius=yradius,
         zradius=zradius,
@@ -138,7 +125,6 @@ def make_OvoidCell(
 @dataclass
 class OvoidCellParams:
     center: Vector3D
-    direction: Vector3D
     xradius: float
     yradius: float
     zradius: float
@@ -147,11 +133,6 @@ class OvoidCellParams:
     def validate_center(cls, value):
         if not isinstance(value, (list, tuple, np.ndarray)) or len(value) != 3:
             raise ValueError("center must be a 3D vector")
-
-    @classmethod
-    def validate_direction(cls, value):
-        if not isinstance(value, (list, tuple, np.ndarray)) or len(value) != 3:
-            raise ValueError("direction must be a 3D vector")
 
     @classmethod
     def validate_xradius(cls, value):

@@ -36,7 +36,7 @@ _CELL_CREATION_MAP: Dict[CellType, Tuple[Callable, List[str]]] = {
     CellType.RECTANGULAR: (make_RectangularCell, ["bounds"]),
     CellType.OVOID: (
         make_OvoidCell,
-        ["center", "direction", "xradius", "yradius", "zradius"],
+        ["center", "xradius", "yradius", "zradius"],
     ),
 }
 
