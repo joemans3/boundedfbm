@@ -28,7 +28,7 @@ from .cells import CellType, create_cell
 from .cells.base_cell import BaseCell
 from .motion.FBM import FBM_BP
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 # Define public API
 __all__ = [
     "__version__",
